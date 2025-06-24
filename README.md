@@ -1,5 +1,7 @@
 # Confluence MCP Server
 
+[![MCP Reviewed](https://img.shields.io/badge/MCP%20Reviewed-✓-blue)](https://mcpreview.com/mcp-servers/pawankumar94/confluence-mcp-server)
+
 A Model Context Protocol (MCP) server implementation for Atlassian Confluence. This server provides a set of tools for interacting with Confluence through the MCP protocol, allowing AI agents to seamlessly work with Confluence content. Built with Flask for easy deployment to Cloud Run.
 
 ## Features
