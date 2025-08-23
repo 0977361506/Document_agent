@@ -31,7 +31,7 @@ RETRY_MIN_WAIT = 1
 RETRY_MAX_WAIT = 10
 
 # Default Confluence Server token
-DEFAULT_TOKEN = "NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m"
+DEFAULT_TOKEN = ""
 
 
 # Input validation models
@@ -302,7 +302,7 @@ async def confluence_search(
         ```python
         results = await confluence_search(
             confluence_url="https://your-confluence-server.com",
-            access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m",
+            access_token="",
             query="project in (SD)"
         )
         ```
