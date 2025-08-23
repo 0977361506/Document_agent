@@ -1,12 +1,8 @@
-import os
 import logging
-import asyncio
-from datetime import datetime
 from functools import wraps
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, Any
 import time
 
-import aiohttp
 from atlassian import Confluence
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
@@ -34,6 +30,9 @@ CALLS_PER_MINUTE = 30
 RETRY_ATTEMPTS = 3
 RETRY_MIN_WAIT = 1
 RETRY_MAX_WAIT = 10
+
+# Default Confluence Server token
+DEFAULT_TOKEN = "NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m"
 
 # Input validation models
 class ConfluenceBase(BaseModel):
@@ -92,13 +91,90 @@ def rate_limited_retry(func):
             raise
     return wrapper
 
+async def get_tools_info() -> Dict[str, Any]:
+    """Get tools information for HTTP API (without MCP decorator)."""
+    return {
+        "tools": [
+            {
+                "name": "confluence_search",
+                "description": "Search for content in Confluence using CQL",
+                "inputSchema": SearchInput.model_json_schema(),
+                "examples": [
+                    {
+                        "description": "Search for pages containing 'architecture'",
+                        "code": 'await confluence_search(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m", query="architecture")'
+                    }
+                ]
+            },
+            {
+                "name": "confluence_get_spaces",
+                "description": "Get list of available Confluence spaces",
+                "inputSchema": SpaceInput.model_json_schema(),
+                "examples": [
+                    {
+                        "description": "List all available spaces",
+                        "code": 'await confluence_get_spaces(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m")'
+                    }
+                ]
+            },
+            {
+                "name": "confluence_get_page",
+                "description": "Get detailed content of a Confluence page",
+                "inputSchema": PageInput.model_json_schema(),
+                "examples": [
+                    {
+                        "description": "Get page content by ID",
+                        "code": 'await confluence_get_page(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m", space_key="SPACE", page_id="123456")'
+                    }
+                ]
+            },
+            {
+                "name": "confluence_create_page",
+                "description": "Create a new page in Confluence",
+                "inputSchema": CreatePageInput.model_json_schema(),
+                "examples": [
+                    {
+                        "description": "Create a new page",
+                        "code": 'await confluence_create_page(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m", space_key="SPACE", title="New Page", content="<p>Hello World</p>")'
+                    }
+                ]
+            },
+            {
+                "name": "confluence_update_page",
+                "description": "Update content of an existing Confluence page",
+                "inputSchema": UpdatePageInput.model_json_schema(),
+                "examples": [
+                    {
+                        "description": "Update page content",
+                        "code": 'await confluence_update_page(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m", space_key="SPACE", page_id="123456", content="<p>Updated content</p>")'
+                    }
+                ]
+            },
+            {
+                "name": "confluence_delete_page",
+                "description": "Delete a Confluence page",
+                "inputSchema": PageInput.model_json_schema(),
+                "examples": [
+                    {
+                        "description": "Delete a page",
+                        "code": 'await confluence_delete_page(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m", space_key="SPACE", page_id="123456")'
+                    }
+                ]
+            }
+        ]
+    }
+
 def create_confluence_client(url: str, token: str) -> Confluence:
-    """Create and configure Confluence client with timeout and retry settings."""
+    """Create and configure Confluence client with timeout and retry settings for Confluence Server."""
+    # Use default token if none provided or if token is empty
+    if not token or token.strip() == "":
+        token = DEFAULT_TOKEN
+        logger.info("Using default Confluence Server token")
+
     return Confluence(
         url=url,
-        username="pawan.kumar@arelis.digital",
-        password=token,
-        cloud=True,
+        token=token,
+        cloud=False,
         timeout=30
     )
 
@@ -129,7 +205,7 @@ async def list_tools() -> Dict[str, Any]:
                 "examples": [
                     {
                         "description": "Search for pages containing 'architecture'",
-                        "code": 'await confluence_search(confluence_url="https://your-domain.atlassian.net/wiki", access_token="your-token", query="architecture")'
+                        "code": 'await confluence_search(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m", query="architecture")'
                     }
                 ]
             },
@@ -140,7 +216,7 @@ async def list_tools() -> Dict[str, Any]:
                 "examples": [
                     {
                         "description": "List all available spaces",
-                        "code": 'await confluence_get_spaces(confluence_url="https://your-domain.atlassian.net/wiki", access_token="your-token")'
+                        "code": 'await confluence_get_spaces(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m")'
                     }
                 ]
             },
@@ -151,7 +227,7 @@ async def list_tools() -> Dict[str, Any]:
                 "examples": [
                     {
                         "description": "Get page content by ID",
-                        "code": 'await confluence_get_page(confluence_url="https://your-domain.atlassian.net/wiki", access_token="your-token", space_key="SPACE", page_id="123456")'
+                        "code": 'await confluence_get_page(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m", space_key="SPACE", page_id="123456")'
                     }
                 ]
             },
@@ -162,7 +238,7 @@ async def list_tools() -> Dict[str, Any]:
                 "examples": [
                     {
                         "description": "Create a new page",
-                        "code": 'await confluence_create_page(confluence_url="https://your-domain.atlassian.net/wiki", access_token="your-token", space_key="SPACE", title="New Page", content="<p>Hello World</p>")'
+                        "code": 'await confluence_create_page(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m", space_key="SPACE", title="New Page", content="<p>Hello World</p>")'
                     }
                 ]
             },
@@ -173,7 +249,7 @@ async def list_tools() -> Dict[str, Any]:
                 "examples": [
                     {
                         "description": "Update page content",
-                        "code": 'await confluence_update_page(confluence_url="https://your-domain.atlassian.net/wiki", access_token="your-token", space_key="SPACE", page_id="123456", content="<p>Updated content</p>")'
+                        "code": 'await confluence_update_page(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m", space_key="SPACE", page_id="123456", content="<p>Updated content</p>")'
                     }
                 ]
             },
@@ -184,7 +260,7 @@ async def list_tools() -> Dict[str, Any]:
                 "examples": [
                     {
                         "description": "Delete a page",
-                        "code": 'await confluence_delete_page(confluence_url="https://your-domain.atlassian.net/wiki", access_token="your-token", space_key="SPACE", page_id="123456")'
+                        "code": 'await confluence_delete_page(confluence_url="https://your-confluence-server.com", access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m", space_key="SPACE", page_id="123456")'
                     }
                 ]
             }
@@ -210,8 +286,8 @@ async def confluence_search(confluence_url: str, access_token: str, query: str) 
     Example:
         ```python
         results = await confluence_search(
-            confluence_url="https://your-domain.atlassian.net/wiki",
-            access_token="your-token",
+            confluence_url="https://your-confluence-server.com",
+            access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m",
             query="project in (SD)"
         )
         ```
@@ -288,8 +364,8 @@ async def confluence_get_spaces(confluence_url: str, access_token: str) -> Dict[
     Example:
         ```python
         spaces = await confluence_get_spaces(
-            confluence_url="https://your-domain.atlassian.net/wiki",
-            access_token="your-token"
+            confluence_url="https://your-confluence-server.com",
+            access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m"
         )
         ```
     """
@@ -364,8 +440,8 @@ async def confluence_get_page(confluence_url: str, access_token: str, space_key:
     Example:
         ```python
         page = await confluence_get_page(
-            confluence_url="https://your-domain.atlassian.net/wiki",
-            access_token="your-token",
+            confluence_url="https://your-confluence-server.com",
+            access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m",
             space_key="SPACE",
             page_id="123456"
         )
@@ -444,8 +520,8 @@ async def confluence_create_page(confluence_url: str, access_token: str, space_k
     Example:
         ```python
         new_page = await confluence_create_page(
-            confluence_url="https://your-domain.atlassian.net/wiki",
-            access_token="your-token",
+            confluence_url="https://your-confluence-server.com",
+            access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m",
             space_key="SPACE",
             title="New Page",
             content="<p>Hello World</p>"
@@ -526,8 +602,8 @@ async def confluence_update_page(confluence_url: str, access_token: str, space_k
     Example:
         ```python
         result = await confluence_update_page(
-            confluence_url="https://your-domain.atlassian.net/wiki",
-            access_token="your-token",
+            confluence_url="https://your-confluence-server.com",
+            access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m",
             space_key="SPACE",
             page_id="123456",
             content="<p>Updated content</p>"
@@ -598,8 +674,8 @@ async def confluence_delete_page(confluence_url: str, access_token: str, space_k
     Example:
         ```python
         result = await confluence_delete_page(
-            confluence_url="https://your-domain.atlassian.net/wiki",
-            access_token="your-token",
+            confluence_url="https://your-confluence-server.com",
+            access_token="NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m",
             space_key="SPACE",
             page_id="123456"
         )

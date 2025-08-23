@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from functools import wraps
 import asyncio
-from typing import Dict, Any, Callable
+from typing import Dict, Callable
 import os
 
 from server import (

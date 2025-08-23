@@ -2,7 +2,7 @@
 
 [![MCP Reviewed](https://img.shields.io/badge/MCP%20Reviewed-✓-blue)](https://mcpreview.com/mcp-servers/pawankumar94/confluence-mcp-server)
 
-A Model Context Protocol (MCP) server implementation for Atlassian Confluence. This server provides a set of tools for interacting with Confluence through the MCP protocol, allowing AI agents to seamlessly work with Confluence content. Built with Flask for easy deployment to Cloud Run.
+A Model Context Protocol (MCP) server implementation for Atlassian Confluence Server. This server provides a set of tools for interacting with Confluence Server through the MCP protocol, allowing AI agents to seamlessly work with Confluence content. Built with Flask for easy deployment to Cloud Run.
 
 ## Features
 
@@ -12,6 +12,8 @@ A Model Context Protocol (MCP) server implementation for Atlassian Confluence. T
 - Rich metadata support for Confluence resources
 - Flask-based server for Cloud Run deployment
 - MCP tools for AI agent integration
+- **Confluence Server support** with Personal Access Token authentication
+- Default token configuration for quick setup
 
 ## Installation
 
@@ -26,15 +28,27 @@ pip install -r requirements.txt
 Create a `.env` file in the project root with the following variables:
 
 ```env
-CONFLUENCE_URL=https://your-instance.atlassian.net/wiki
-CONFLUENCE_ACCESS_TOKEN=your_access_token
+CONFLUENCE_URL=https://your-confluence-server.com
+CONFLUENCE_ACCESS_TOKEN=NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m
 PORT=8080  # Optional, defaults to 8080
 ```
 
-To get an access token:
-1. Log in to your Atlassian account
-2. Go to Account Settings > Security > Create and manage API tokens
-3. Create a new API token and copy it
+To get an access token for Confluence Server:
+1. Log in to your Confluence Server instance as an administrator
+2. Go to Administration > General Configuration > Personal Access Tokens
+3. Create a new Personal Access Token and copy it
+4. Alternatively, use the provided default token: NjgwODAxODIzMzIwOvsgoNEGsolZUPSWL7PT3TMvOv6m
+
+## Migration from Confluence Cloud
+
+This server has been updated to work with **Confluence Server** instead of Confluence Cloud. Key changes include:
+
+- **Authentication**: Now uses Personal Access Tokens instead of username/password
+- **API Endpoints**: Configured for Confluence Server API endpoints
+- **Default Token**: Includes a pre-configured token for quick testing
+- **Cloud Flag**: Set to `false` for Confluence Server compatibility
+
+If you need to revert to Confluence Cloud, change the `cloud=False` to `cloud=True` in the `create_confluence_client` function and update the authentication method.
 
 ## Available Tools
 
