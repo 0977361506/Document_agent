@@ -170,7 +170,8 @@ def build_pure_langgraph_agent():
                         "Hãy tìm thông tin chi tiết về các bảng dữ liệu (bao gồm tên bảng và các thông tin về cột trong bảng), luồng chức năng và các đường link liên quan. "
                         "Nếu không tìm thấy thông tin nào về 'luồng chức năng', hãy ghi rõ. "
                         "Đưa ra kết quả dưới dạng JSON với 2 trường 'is_sufficient' (boolean) "
-                        "và 'summary' (string). is_sufficient sẽ là true nếu bạn tìm thấy đủ thông tin về luồng chức năng hoặc các bảng dữ liệu liên quan đến '{topic}', ngược lại là false."
+                        "và 'summary' (string). is_sufficient sẽ là true nếu bạn tìm thấy đủ thông tin về luồng chức năng hoặc các bảng dữ liệu liên quan đến '{topic}', "
+                        "ngược lại nếu thiếu một thông tin nào đó là false."
                         "Nếu không tìm thấy bất kỳ thông tin nào liên quan đến '{topic}' trong nội dung, hãy đặt summary là 'Không tìm thấy thông tin liên quan đến {topic}.'",
                     ),
                     ("user", f"Đây là nội dung tài liệu:\n\n{raw_content}"),
@@ -215,14 +216,58 @@ def build_pure_langgraph_agent():
             print("-> Thông tin chưa đủ. Tiếp tục tìm kiếm.")
             return "continue"
 
+    # Sửa đổi hàm final_summary_node
     def final_summary_node(state: AgentState) -> dict:
         print("-> Đang tạo bản tóm tắt cuối cùng...")
         final_summary = state.get("analysis_results", {}).get(
             "summary", "Không tìm thấy thông tin phù hợp."
         )
-        # Nếu có lỗi, trả về thông báo lỗi thay vì tóm tắt
+        topic = state.get("topic_of_interest", "một chủ đề không xác định")
+
+        # Nếu có lỗi, trả về thông báo lỗi
         if state.get("error"):
             return {"final_output": state["final_output"]}
+
+        # Nếu phân tích ban đầu không đủ, yêu cầu LLM suy luận thêm
+        is_sufficient = state.get("analysis_results", {}).get("is_sufficient", False)
+        if not is_sufficient:
+            print("-> Thông tin chưa đủ. Yêu cầu AI suy luận và bổ sung...")
+
+            # Tạo prompt mới để yêu cầu LLM suy luận
+            llm = ChatGoogleGenerativeAI(
+                model="gemini-2.0-flash", temperature=0.7
+            )  # Tăng temperature để có khả năng sáng tạo hơn
+            reasoning_prompt = ChatPromptTemplate.from_messages(
+                [
+                    (
+                        "system",
+                        f"Dựa trên các thông tin đã tìm thấy sau đây về chủ đề '{topic}', "
+                        "hãy suy luận và bổ sung thêm các chi tiết còn thiếu một cách hợp lý. "
+                        "Nếu không có thông tin cụ thể về 'luồng chức năng' hoặc 'cấu trúc bảng', "
+                        "hãy suy luận và bổ sung thêm các chi tiết còn thiếu một cách hợp lý."
+                        "Không tạo ra thông tin sai lệch, chỉ suy luận dựa trên ngữ cảnh chung và kiến thức của bạn. "
+                        "Trả lại toàn bộ thông tin đã tìm thấy và phần suy luận của bạn thành một bản báo cáo hoàn chỉnh. Không giải thích gì thêm",
+                    ),
+                    ("user", f"Thông tin đã tìm thấy:\n\n{final_summary}"),
+                ]
+            )
+
+            reasoning_chain = reasoning_prompt | llm
+            try:
+                full_summary_response = reasoning_chain.invoke(
+                    {"final_summary": final_summary, "topic": topic}
+                )
+                final_summary = (
+                    full_summary_response.content
+                )  # Lấy nội dung từ phản hồi của LLM
+            except Exception as e:
+                # Xử lý nếu LLM gọi thất bại
+                print(f"Lỗi khi gọi LLM để suy luận: {e}")
+                final_summary = (
+                    final_summary
+                    + "\n\n(Không thể suy luận và bổ sung thêm thông tin do lỗi.)"
+                )
+
         return {"final_output": final_summary}
 
     # --- Build the graph (Xây dựng biểu đồ) ---
@@ -269,7 +314,7 @@ app.add_middleware(
 agent_app = build_pure_langgraph_agent()
 
 
-@app.post("/stream_analysis")
+@app.post("/api/v1/stream_analysis")
 async def stream_analysis(request: Request):
     data = await request.json()
     url = data.get("url")
